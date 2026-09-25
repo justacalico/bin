@@ -24,8 +24,36 @@ platform Flutter supports.
 
 ## Install
 
-Binaries for Linux, Windows, macOS, Android, iOS (AltStore) and web are
-attached to every [release](https://gitlab.com/HttpAnimations/bin/-/releases).
+Binaries for every platform are attached to each
+[release](https://gitlab.com/HttpAnimations/bin/-/releases):
+
+| Platform | Files |
+|---|---|
+| Linux | `.tar.gz`, `.zip`, `.deb`, `.rpm`, `.AppImage` (x86_64 + arm64) |
+| Windows | `.zip` (x86_64 + arm64) |
+| macOS | `.dmg`, `.zip` (arm64) |
+| Android | `.apk`, `.aab` |
+| iOS | unsigned `.ipa` (see AltStore below) |
+| Web | `bin-web.tar.gz`, or just use the [hosted version](https://HttpAnimations.gitlab.io/bin/) |
+
+### AltStore (iOS)
+
+Add this source in AltStore:
+
+```
+https://HttpAnimations.gitlab.io/bin/altstore/apps.json
+```
+
+Then install `bin` from the source. AltStore signs the unsigned `.ipa`
+locally on your device.
+
+## Development
+
+```bash
+flutter pub get
+flutter test --coverage   # 100% coverage gate
+flutter run
+```
 
 ## License
 
