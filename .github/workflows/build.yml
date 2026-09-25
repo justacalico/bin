@@ -108,7 +108,7 @@ jobs:
           flutter pub get
           flutter analyze --no-pub
           flutter test --coverage --no-pub
-          lcov --remove coverage/lcov.info '**/*.g.dart' '**/*.freezed.dart' '**/l10n/**' -o coverage/lcov.cleaned.info
+          lcov --ignore-errors unused --remove coverage/lcov.info '**/*.g.dart' '**/*.freezed.dart' '**/l10n/**' -o coverage/lcov.cleaned.info
           lcov --summary coverage/lcov.cleaned.info --fail-under-lines 100
 
   build:
