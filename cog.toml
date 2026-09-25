@@ -1,0 +1,16 @@
+pre_bump_hooks = [
+  "sed -i -E 's/^version:.*/version: {{version}}/' pubspec.yaml",
+]
+
+[changelog]
+path = "CHANGELOG.md"
+template = "remote"
+remote = "gitlab.com"
+owner = "HttpAnimations"
+repository = "bin"
+
+# Profile used by the CI auto-release job
+[profiles.ci]
+pre_bump_hooks = [
+  "sed -i -E 's/^version:.*/version: {{version}}/' pubspec.yaml",
+]
