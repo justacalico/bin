@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.1.1](https://gitlab.com/HttpAnimations/bin/compare/0f9667a0ca8e03f96e352a4596d93a02aac309f4..v1.1.1) - 2026-09-25
+#### Bug Fixes
+- 改用脚本更新 pubspec 版本 - ([bb06129](https://gitlab.com/HttpAnimations/bin/commit/bb06129ff055907b512cf60a6b3a7e44daa88900)) - HttpAnimations
+- 修复版本号解析与 cog 钩子 - ([0f9667a](https://gitlab.com/HttpAnimations/bin/commit/0f9667a0ca8e03f96e352a4596d93a02aac309f4)) - HttpAnimations
+
+- - -
+
 ## [v1.1.0](https://gitlab.com/HttpAnimations/bin/compare/9ef886191f224d3a6f0b06a3499b3e334a440d0c..v1.1.0) - 2026-09-25
 #### Features
 - 添加应用图标 - ([9ef8861](https://gitlab.com/HttpAnimations/bin/commit/9ef886191f224d3a6f0b06a3499b3e334a440d0c)) - HttpAnimations
