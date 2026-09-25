@@ -57,7 +57,7 @@ jobs:
       - name: Read version and build metadata
         id: meta
         run: |
-          VERSION=$(sed -n 's/^version: \(.*\)+.*/\1/p' pubspec.yaml | head -1)
+          VERSION=$(sed -n 's/^version: *\([^+ ]*\).*/\1/p' pubspec.yaml | head -1)
           BUILD_NUMBER=$(date +%s | cut -c4-10)
           BUILD_DATE=$(date +%Y-%m-%d)
           if [ -n "${{ inputs.build_all }}" ]; then
