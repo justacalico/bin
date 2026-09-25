@@ -2,6 +2,45 @@
   "name": "bin",
   "identifier": "com.httpanimations.bin.altstore",
   "sourceURL": "https://HttpAnimations.gitlab.io/bin/altstore/apps.json",
-  "apps": [],
-  "news": []
+  "apps": [
+    {
+      "name": "bin",
+      "bundleIdentifier": "com.httpanimations.bin",
+      "developerName": "HttpAnimations",
+      "subtitle": "Roblox avatars in 3D",
+      "localizedDescription": "Enter a Roblox username and view the player avatar rendered in 3D.",
+      "iconURL": "https://HttpAnimations.gitlab.io/bin/altstore/icon.png",
+      "tintedIconURL": "https://HttpAnimations.gitlab.io/bin/altstore/icon.png",
+      "category": "utilities",
+      "versions": [
+        {
+          "version": "1.1.1",
+          "date": "2026-09-25T22:57:05+0000",
+          "downloadURL": "https://gitlab.com/HttpAnimations/bin/-/releases/v1.1.1/downloads/bin-ios-arm64-unsigned.ipa",
+          "size": 6895262,
+          "minOSVersion": "14.0"
+        }
+      ],
+      "version": "1.1.1",
+      "versionDate": "2026-09-25T22:57:05+0000",
+      "versionDescription": "Release 1.1.1",
+      "downloadURL": "https://gitlab.com/HttpAnimations/bin/-/releases/v1.1.1/downloads/bin-ios-arm64-unsigned.ipa",
+      "size": 6895262,
+      "appPermissions": {
+        "entitlements": [],
+        "privacy": {}
+      },
+      "screenshots": []
+    }
+  ],
+  "news": [
+    {
+      "title": "bin 1.1.1",
+      "identifier": "release-1.1.1",
+      "caption": "Latest release",
+      "date": "2026-09-25T22:57:05+0000",
+      "notify": true,
+      "url": "https://gitlab.com/HttpAnimations/bin/-/releases/v1.1.1/downloads/bin-ios-arm64-unsigned.ipa"
+    }
+  ]
 }
