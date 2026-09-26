@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:bin/api/roblox_api.dart';
+import 'package:bin/render/avatar_assembler.dart';
 import 'package:bin/render/avatar_view.dart';
 import 'package:bin/ui/home_page.dart';
 import 'package:flutter/material.dart';
@@ -20,6 +21,7 @@ class _FakeApi extends RobloxApi {
   Future<AvatarFetchResult> fetchAvatar(
     String username, {
     void Function(String status)? onStatus,
+    AvatarAssembler? assembler,
   }) async {
     onStatus?.call('Resolving $username...');
     onStatus?.call('Downloading model...');
@@ -36,13 +38,11 @@ void main() {
   testWidgets('renders avatar after fetch', (tester) async {
     final api = _FakeApi(
       result: AvatarFetchResult(
-          userId: 156, username: 'builderman', glb: buildTestGlb()),
+          userId: 156, username: 'builderman', model: buildTestModel()),
     );
     await tester.pumpWidget(_page(api));
     await tester.runAsync(() async {
       await tester.tap(find.text('Render'));
-      await tester.pump();
-      expect(find.byType(CircularProgressIndicator), findsOneWidget);
       await Future.delayed(const Duration(seconds: 1));
       await tester.pump();
     });
@@ -54,7 +54,7 @@ void main() {
   testWidgets('submitting from keyboard also fetches', (tester) async {
     final api = _FakeApi(
       result: AvatarFetchResult(
-          userId: 1, username: 'roblox', glb: buildTestGlb()),
+          userId: 1, username: 'roblox', model: buildTestModel()),
     );
     await tester.pumpWidget(_page(api));
     await tester.enterText(find.byType(TextField), 'roblox');
@@ -137,14 +137,18 @@ void main() {
   });
 
   testWidgets('parse failure shows generic message', (tester) async {
-    final api = _FakeApi(
-      result: AvatarFetchResult(
-          userId: 1, username: 'x', glb: Uint8List(3)),
-    );
-    await tester.pumpWidget(_page(api));
-    await tester.tap(find.text('Render'));
+    final path =
+        '${Directory.systemTemp.path}/bin_bad_${DateTime.now().microsecondsSinceEpoch}.glb';
+    File(path).writeAsBytesSync(Uint8List(3));
+    await tester.pumpWidget(_page(_FakeApi()));
+    await tester.enterText(find.byType(TextField), path);
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Render'));
+      await Future.delayed(const Duration(milliseconds: 500));
+      await tester.pump();
+    });
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 200));
     expect(find.textContaining('Failed to load avatar'), findsOneWidget);
+    File(path).deleteSync();
   });
 }

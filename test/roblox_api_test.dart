@@ -1,36 +1,24 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:bin/api/action_ids.dart';
 import 'package:bin/api/roblox_api.dart';
-import 'package:bin/api/server_action.dart';
+import 'package:bin/render/avatar_assembler.dart';
+import 'package:bin/render/glb_parser.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-class _StubIds extends ActionIds {
-  _StubIds(this.ids)
-      : super(
-            client: MockClient((request) async => http.Response('', 404)),
-            pageUrl: Uri.parse('https://example.test'));
+import 'helpers.dart';
 
-  final Map<String, String> ids;
+RobloxApi _api(Future<http.Response> Function(http.BaseRequest) handler) =>
+    RobloxApi(client: MockClient(handler));
 
+class _FakeAssembler extends AvatarAssembler {
+  _FakeAssembler(this.model) : super((_) async => Uint8List(0));
+  final AvatarModel model;
   @override
-  Future<Map<String, String>> resolve() async => ids;
+  Future<AvatarModel> build(AvatarSpec spec) async => model;
 }
-
-RobloxApi _api(Future<http.Response> Function(http.BaseRequest) handler,
-    {Map<String, String>? ids}) {
-  final client = MockClient(handler);
-  return RobloxApi(
-    client: client,
-    actions: ServerActionClient(client: client),
-    actionIds: _StubIds(ids ?? ActionIds.fallback),
-  );
-}
-
-String _actionIdOf(http.BaseRequest request) =>
-    request.headers['Next-Action'] ?? '';
 
 void main() {
   test('exception toString', () {
@@ -39,163 +27,111 @@ void main() {
 
   group('lookupUserId', () {
     test('returns id on success', () async {
-      final api = _api((request) async => http.Response('0:x\n1:156', 200));
+      final api = _api((r) async =>
+          http.Response(jsonEncode({'data': [{'id': 156}]}), 200));
       expect(await api.lookupUserId('builderman'), 156);
     });
 
-    test('returns null for unknown user', () async {
-      final api = _api((request) async => http.Response('0:x\n1:null', 200));
+    test('null for unknown user', () async {
+      final api = _api((r) async => http.Response('{"data":[]}', 200));
       expect(await api.lookupUserId('nobody_xyz'), isNull);
     });
 
-    test('returns null for non-numeric value', () async {
-      final api =
-          _api((request) async => http.Response('0:x\n1:"huh"', 200));
-      expect(await api.lookupUserId('nobody'), isNull);
+    test('null for non-numeric id', () async {
+      final api = _api((r) async =>
+          http.Response(jsonEncode({'data': [{'id': 'x'}]}), 200));
+      expect(await api.lookupUserId('x'), isNull);
+    });
+
+    test('throws on non-200', () async {
+      final api = _api((r) async => http.Response('err', 500));
+      expect(() => api.lookupUserId('x'),
+          throwsA(isA<AvatarFetchException>()));
     });
   });
 
-  group('bakedGlbUrl', () {
-    test('parses url', () async {
-      final api = _api((request) async =>
-          http.Response('0:x\n1:"https://cdn.test/a.glb"', 200));
-      expect((await api.bakedGlbUrl(1)).toString(), 'https://cdn.test/a.glb');
+  group('avatarSpec', () {
+    test('parses type, scales, colors, assets', () async {
+      final api = _api((r) async => http.Response(jsonEncode({
+            'playerAvatarType': 'R15',
+            'scales': {'height': 1.05, 'width': 0.9},
+            'bodyColors': {'headColorId': 226, 'torsoColorId': 1017},
+            'assets': [
+              {'id': 7, 'assetType': {'name': 'Hat'}},
+              {'id': 9, 'name': 'x'},
+            ],
+          }), 200));
+      final spec = await api.avatarSpec(1);
+      expect(spec.avatarType, 'R15');
+      expect(spec.scales['height'], 1.05);
+      expect(spec.bodyColors['headColorId'], 226);
+      expect(spec.assets, [(7, 'Hat'), (9, '')]);
     });
 
-    test('null when not baked', () async {
-      final api = _api((request) async => http.Response('0:x\n1:null', 200));
-      expect(await api.bakedGlbUrl(1), isNull);
-    });
-  });
-
-  group('bakeAvatar', () {
-    test('ok response carries url', () async {
-      final api = _api((request) async => http.Response(
-          '0:x\n1:{"ok":true,"url":"https://cdn.test/b.glb"}', 200));
-      final bake = await api.bakeAvatar(1);
-      expect(bake.ok, isTrue);
-      expect(bake.url.toString(), 'https://cdn.test/b.glb');
-    });
-
-    test('gate response carries gate and reset', () async {
-      final api = _api((request) async => http.Response(
-          '0:x\n1:{"ok":false,"gate":"sign-in","limit":1,"used":1,"resetsAt":"2030-01-01T00:00:00Z"}',
-          200));
-      final bake = await api.bakeAvatar(1);
-      expect(bake.ok, isFalse);
-      expect(bake.gate, 'sign-in');
-      expect(bake.resetsAt, contains('2030'));
-    });
-
-    test('non-object value gives not-ok', () async {
-      final api = _api((request) async => http.Response('0:x\n1:null', 200));
-      expect((await api.bakeAvatar(1)).ok, isFalse);
+    test('throws on non-200', () async {
+      final api = _api((r) async => http.Response('err', 404));
+      expect(() => api.avatarSpec(1), throwsA(isA<AvatarFetchException>()));
     });
   });
 
-  group('downloadGlb', () {
+  group('asset', () {
     test('returns bytes', () async {
-      final api = _api((request) async =>
-          http.Response.bytes(Uint8List.fromList([1, 2, 3]), 200));
-      expect(await api.downloadGlb(Uri.parse('https://cdn.test/a')),
-          [1, 2, 3]);
+      final api = _api((r) async => http.Response.bytes([1, 2, 3], 200));
+      expect(await api.asset(5), [1, 2, 3]);
     });
 
     test('throws on failure', () async {
-      final api = _api((request) async => http.Response('', 404));
-      expect(() => api.downloadGlb(Uri.parse('https://cdn.test/a')),
-          throwsA(isA<AvatarFetchException>()));
+      final api = _api((r) async => http.Response.bytes([], 200));
+      expect(() => api.asset(5), throwsA(isA<AvatarFetchException>()));
+      final api2 = _api((r) async => http.Response.bytes([1], 500));
+      expect(() => api2.asset(5), throwsA(isA<AvatarFetchException>()));
     });
   });
 
   group('fetchAvatar', () {
-    test('baked fast path', () async {
-      final statuses = <String>[];
-      final api = _api((request) async {
-        final action = _actionIdOf(request);
-        if (action == ActionIds.fallback[ActionIds.lookupUser]) {
-          return http.Response('0:x\n1:156', 200);
+    test('full pipeline returns model', () async {
+      var calls = 0;
+      final api = _api((r) async {
+        calls++;
+        if (r.url.host.contains('users')) {
+          return http.Response(jsonEncode({'data': [{'id': 156}]}), 200);
         }
-        if (action == ActionIds.fallback[ActionIds.avatarIfBaked]) {
-          return http.Response('0:x\n1:"https://cdn.test/ava.glb"', 200);
-        }
-        return http.Response.bytes(Uint8List.fromList([9, 9]), 200);
+        return http.Response(jsonEncode({
+          'playerAvatarType': 'R6',
+          'scales': <String, double>{},
+          'bodyColors': <String, int>{},
+          'assets': <dynamic>[],
+        }), 200);
       });
-      final result =
-          await api.fetchAvatar('builderman', onStatus: statuses.add);
+      final statuses = <String>[];
+      final result = await api.fetchAvatar('builderman',
+          onStatus: statuses.add, assembler: _FakeAssembler(buildTestModel()));
       expect(result.userId, 156);
-      expect(result.glb, [9, 9]);
-      expect(statuses.any((s) => s.contains('Resolving')), isTrue);
-      expect(statuses.any((s) => s.contains('Downloading')), isTrue);
-    });
-
-    test('bake path when not baked', () async {
-      final api = _api((request) async {
-        final action = _actionIdOf(request);
-        if (action == ActionIds.fallback[ActionIds.lookupUser]) {
-          return http.Response('0:x\n1:77', 200);
-        }
-        if (action == ActionIds.fallback[ActionIds.avatarIfBaked]) {
-          return http.Response('0:x\n1:null', 200);
-        }
-        if (action == ActionIds.fallback[ActionIds.avatarBake]) {
-          return http.Response(
-              '0:x\n1:{"ok":true,"url":"https://cdn.test/fresh.glb"}', 200);
-        }
-        return http.Response.bytes(Uint8List.fromList([5]), 200);
-      });
-      final statuses = <String>[];
-      final result = await api.fetchAvatar('someuser', onStatus: statuses.add);
-      expect(result.glb, [5]);
-      expect(statuses.any((s) => s.contains('bake')), isTrue);
+      expect(result.model.parts, isNotEmpty);
+      expect(statuses, isNotEmpty);
+      expect(calls, 2);
     });
 
     test('unknown user throws', () async {
-      final api = _api((request) async => http.Response('0:x\n1:null', 200));
+      final api = _api((r) async => http.Response('{"data":[]}', 200));
       expect(() => api.fetchAvatar('ghost'),
           throwsA(isA<AvatarFetchException>()));
     });
 
-    test('sign-in gate produces friendly error', () async {
-      final api = _api((request) async {
-        final action = _actionIdOf(request);
-        if (action == ActionIds.fallback[ActionIds.lookupUser]) {
-          return http.Response('0:x\n1:88', 200);
+    test('default assembler builds model', () async {
+      final api = _api((r) async {
+        if (r.url.host.contains('users')) {
+          return http.Response(jsonEncode({'data': [{'id': 156}]}), 200);
         }
-        if (action == ActionIds.fallback[ActionIds.avatarIfBaked]) {
-          return http.Response('0:x\n1:null', 200);
-        }
-        if (action == ActionIds.fallback[ActionIds.avatarBake]) {
-          return http.Response('0:x\n1:{"ok":false,"gate":"sign-in"}', 200);
-        }
-        return http.Response('x', 500);
+        return http.Response(jsonEncode({
+          'playerAvatarType': 'R6',
+          'scales': <String, double>{},
+          'bodyColors': <String, int>{'headColorId': 26},
+          'assets': <dynamic>[],
+        }), 200);
       });
-      expect(
-        () => api.fetchAvatar('someuser'),
-        throwsA(isA<AvatarFetchException>().having(
-            (e) => e.message, 'message', contains('quota'))),
-      );
-    });
-
-    test('bake failure without gate produces generic error', () async {
-      final api = _api((request) async {
-        final action = _actionIdOf(request);
-        if (action == ActionIds.fallback[ActionIds.lookupUser]) {
-          return http.Response('0:x\n1:88', 200);
-        }
-        if (action == ActionIds.fallback[ActionIds.avatarIfBaked]) {
-          return http.Response('0:x\n1:null', 200);
-        }
-        if (action == ActionIds.fallback[ActionIds.avatarBake]) {
-          return http.Response('0:x\n1:{"ok":false}', 200);
-        }
-        return http.Response('x', 500);
-      });
-      expect(
-        () => api.fetchAvatar('someuser'),
-        throwsA(isA<AvatarFetchException>().having(
-            (e) => e.message, 'message', contains('bake failed'))),
-      );
+      final result = await api.fetchAvatar('builderman');
+      expect(result.model.parts.length, greaterThan(3));
     });
   });
 }
