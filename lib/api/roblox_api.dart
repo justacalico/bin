@@ -89,7 +89,7 @@ class RobloxApi {
   }
 
   Future<Uint8List> downloadGlb(Uri url) async {
-    final response = await client.get(url);
+    final response = await client.get(url).timeout(const Duration(seconds: 60));
     if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
       throw AvatarFetchException(
           'avatar download failed (HTTP ${response.statusCode})');

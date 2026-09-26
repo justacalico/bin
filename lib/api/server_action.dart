@@ -26,10 +26,13 @@ class ServerActionClient {
         'Next-Action': actionId,
       },
       body: payload,
-    );
+    ).timeout(const Duration(seconds: 20));
     if (response.statusCode != 200) {
+      final hint = response.statusCode == 500
+          ? '; the backend may be refusing cross-origin browser requests'
+          : '';
       throw ServerActionException(
-          'action call failed (HTTP ${response.statusCode})');
+          'action call failed (HTTP ${response.statusCode})$hint');
     }
     return response.body;
   }

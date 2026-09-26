@@ -10,9 +10,11 @@ platform Flutter supports.
 ## Features
 
 - Username to 3D avatar in one step
+- Enter a local `.glb` path instead of a username to view any model file
 - Orbit camera: drag to rotate, scroll or pinch to zoom, double tap to reset
 - Auto-rotate while idle
 - Dynamic server-action discovery so renderbux redeploys do not break the app
+- Honors `http_proxy`/`https_proxy` environment variables
 - Flat-shaded textured rendering with painter's algorithm depth sorting
 
 ## How it works
@@ -35,6 +37,10 @@ Binaries for every platform are attached to each
 | Android | `.apk`, `.aab` |
 | iOS | unsigned `.ipa` (see AltStore below) |
 | Web | `bin-web.tar.gz`, or just use the [hosted version](https://HttpAnimations.gitlab.io/bin/) |
+
+> Note: the web build cannot reach the renderbux API because the backend
+> rejects cross-origin server-action calls, and browsers cannot read local
+> files by path. Username lookup and `.glb` paths are desktop and mobile only.
 
 ### AltStore (iOS)
 

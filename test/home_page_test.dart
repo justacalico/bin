@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:bin/api/roblox_api.dart';
@@ -86,6 +88,16 @@ void main() {
     expect(find.byIcon(Icons.error_outline), findsOneWidget);
   });
 
+  testWidgets('timeout shows connection message', (tester) async {
+    final api = _FakeApi(
+        error: TimeoutException('deadline', const Duration(seconds: 1)));
+    await tester.pumpWidget(_page(api));
+    await tester.tap(find.text('Render'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(find.textContaining('Request timed out'), findsOneWidget);
+  });
+
   testWidgets('unexpected error shows generic message', (tester) async {
     final api = _FakeApi(error: StateError('boom'));
     await tester.pumpWidget(_page(api));
@@ -93,6 +105,35 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 200));
     expect(find.textContaining('Failed to load avatar'), findsOneWidget);
+  });
+
+  testWidgets('local glb path renders directly', (tester) async {
+    final path =
+        '${Directory.systemTemp.path}/bin_widget_${DateTime.now().microsecondsSinceEpoch}.glb';
+    File(path).writeAsBytesSync(buildTestGlb());
+    await tester.pumpWidget(_page(_FakeApi()));
+    await tester.enterText(find.byType(TextField), path);
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Render'));
+      await Future.delayed(const Duration(seconds: 1));
+      await tester.pump();
+    });
+    await tester.pump();
+    expect(find.byType(AvatarView), findsOneWidget);
+    expect(find.textContaining('.glb'), findsWidgets);
+    File(path).deleteSync();
+  });
+
+  testWidgets('missing local glb shows error', (tester) async {
+    await tester.pumpWidget(_page(_FakeApi()));
+    await tester.enterText(find.byType(TextField), '/no/such/model.glb');
+    await tester.runAsync(() async {
+      await tester.tap(find.text('Render'));
+      await Future.delayed(const Duration(milliseconds: 500));
+      await tester.pump();
+    });
+    await tester.pump();
+    expect(find.textContaining('Could not read'), findsOneWidget);
   });
 
   testWidgets('parse failure shows generic message', (tester) async {

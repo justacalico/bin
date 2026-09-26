@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../api/roblox_api.dart';
+import '../bootstrap_stub.dart'
+    if (dart.library.io) '../bootstrap_io.dart';
 import '../render/avatar_view.dart';
 import '../render/glb_parser.dart';
 
@@ -49,32 +54,50 @@ class _HomePageState extends State<HomePage> {
       return;
     }
     _focus.unfocus();
+    final local = username.endsWith('.glb');
     setState(() {
       _state = _FetchState.loading;
       _model = null;
-      _status = 'Resolving $username...';
+      _status = local ? 'Loading local model...' : 'Resolving $username...';
     });
     try {
-      final result = await _api.fetchAvatar(
-        username,
-        onStatus: (s) {
-          if (mounted) setState(() => _status = s);
-        },
-      );
-      final model = await GlbParser().parse(result.glb);
+      final Uint8List glb;
+      String label;
+      if (local) {
+        glb = await readLocalFile(username) ??
+            (throw AvatarFetchException('Could not read $username'));
+        label = username.split('/').last;
+        _userId = username.hashCode;
+      } else {
+        final result = await _api.fetchAvatar(
+          username,
+          onStatus: (s) {
+            if (mounted) setState(() => _status = s);
+          },
+        );
+        glb = result.glb;
+        label = '${result.username} (#${result.userId})';
+        _userId = result.userId;
+      }
+      final model = await GlbParser().parse(glb);
       if (!mounted) return;
       setState(() {
         _state = _FetchState.ready;
         _model = model;
-        _userId = result.userId;
         _displayName = username;
-        _status = '${result.username} (#${result.userId})';
+        _status = label;
       });
     } on AvatarFetchException catch (e) {
       if (!mounted) return;
       setState(() {
         _state = _FetchState.error;
         _status = e.message;
+      });
+    } on TimeoutException {
+      if (!mounted) return;
+      setState(() {
+        _state = _FetchState.error;
+        _status = 'Request timed out. Check your connection or proxy.';
       });
     } catch (e) {
       if (!mounted) return;
@@ -102,7 +125,7 @@ class _HomePageState extends State<HomePage> {
                       textInputAction: TextInputAction.go,
                       onSubmitted: (_) => _render(),
                       decoration: const InputDecoration(
-                        hintText: 'Roblox username',
+                        hintText: 'Roblox username or /path/model.glb',
                         isDense: true,
                       ),
                     ),
