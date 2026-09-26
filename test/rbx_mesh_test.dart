@@ -121,6 +121,8 @@ void main() {
         ..setFloat32(28, 0.2, Endian.little);
       out.add(v.buffer.asUint8List());
     }
+    // weights + bone ids block (8 bytes per skinned vertex)
+    out.add(Uint8List(3 * 8));
     final face = ByteData(12)
       ..setUint32(0, 0, Endian.little)
       ..setUint32(4, 1, Endian.little)
@@ -131,6 +133,23 @@ void main() {
     expect(m.vertices[1].x, 2.0);
     expect(m.vertices[1].u, closeTo(0.1, 1e-6));
     expect(m.indices, [0, 1, 2]);
+  });
+
+  test('v1 mesh with fewer tuples than declared throws', () {
+    final bytes = ascii.encode(
+        'version 1.00\n5\n[0,0,0][0,0,1][0,0,0][1,0,0][0,0,1][0,0,0][0,1,0][0,0,1][0,0,0]\n');
+    expect(() => parseRbxMesh(bytes), throwsA(isA<RbxMeshException>()));
+  });
+
+  test('v1 mesh with split tuple lines parses', () {
+    final bytes = ascii.encode('version 1.00\n1\n'
+        '[0,0,0][0,0,1][0,0,0]\n'
+        '[2,0,0][0,0,1][1,0,0]\n'
+        '[0,2,0][0,0,1][0,1,0]\n');
+    final m = parseRbxMesh(bytes);
+    expect(m.vertices.length, 3);
+    expect(m.vertices[1].x, closeTo(1.0, 1e-6));
+    expect(m.vertices[2].y, closeTo(1.0, 1e-6));
   });
 
   test('exception toString', () {

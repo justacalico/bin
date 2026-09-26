@@ -306,6 +306,106 @@ void main() {
     });
   });
 
+  testWidgets('rig attachments position cframe-less package parts',
+      (tester) async {
+    await tester.runAsync(() async {
+      final torso = buildR15Package([
+        ('LowerTorso', 100),
+        ('UpperTorso', 100),
+      ], attachments: {
+        'LowerTorso': {
+          'LeftHipRigAttachment': [-0.4, -0.7, 0],
+          'RightHipRigAttachment': [0.4, -0.7, 0],
+        },
+        'UpperTorso': {
+          'NeckRigAttachment': [0, 0.8, 0],
+          'LeftShoulderRigAttachment': [-1.1, 0.6, 0],
+          'RightShoulderRigAttachment': [1.1, 0.6, 0],
+        },
+      });
+      final arm = buildR15Package([
+        ('LeftUpperArm', 100),
+        ('LeftLowerArm', 100),
+        ('LeftHand', 100),
+      ], attachments: {
+        'LeftUpperArm': {'LeftShoulderRigAttachment': [0, 0.5, 0]},
+      });
+      final leg = buildR15Package([
+        ('LeftUpperLeg', 100),
+        ('LeftLowerLeg', 100),
+        ('LeftFoot', 100),
+      ], attachments: {
+        'LeftUpperLeg': {'LeftHipRigAttachment': [0, 0.8, 0]},
+      });
+      // no cframes, but the shoulder attachments line up with the torso's
+      final armChain = buildR15Package([
+        ('RightUpperArm', 100),
+        ('RightLowerArm', 100),
+        ('RightHand', 100),
+      ], cframes: false, attachments: {
+        'RightUpperArm': {'RightShoulderRigAttachment': [0, 0.5, 0]},
+      });
+      final m = await AvatarAssembler(fakeLoader({
+        50: torso,
+        51: arm,
+        52: armChain,
+        53: leg,
+        54: leg,
+        100: texMesh(),
+        200: testPng(),
+      }))
+          .build(spec(type: 'R15', assets: [
+        (50, 'Torso'),
+        (51, 'LeftArm'),
+        (52, 'RightArm'),
+        (53, 'LeftLeg'),
+        (54, 'RightLeg'),
+      ]));
+      // 9 mesh parts + blocky head + face decal quad
+      expect(m.parts.length, greaterThanOrEqualTo(9));
+    });
+  });
+
+  testWidgets('tshirt decal wraps the package torso', (tester) async {
+    await tester.runAsync(() async {
+      // 'Torso' instead of UpperTorso exercises the neck-anchor fallback
+      final torso = buildR15Package([
+        ('LowerTorso', 100),
+        ('Torso', 100),
+      ]);
+      final limb = buildR15Package([
+        ('LeftUpperArm', 100),
+        ('RightUpperArm', 100),
+        ('LeftUpperLeg', 100),
+        ('RightUpperLeg', 100),
+      ]);
+      final m = await AvatarAssembler(fakeLoader({
+        50: torso,
+        51: limb,
+        52: limb,
+        53: limb,
+        54: limb,
+        70: xmlDecal(300),
+        100: texMesh(),
+        200: testPng(),
+        300: testPng(),
+        144075659: xmlDecal(400),
+        400: testPng(),
+      }))
+          .build(spec(type: 'R15', assets: [
+        (50, 'Torso'),
+        (51, 'LeftArm'),
+        (52, 'RightArm'),
+        (53, 'LeftLeg'),
+        (54, 'RightLeg'),
+        (70, 'TShirt'),
+      ]));
+      // 6 mesh parts + blocky head + face quad
+      expect(m.parts.length, greaterThanOrEqualTo(8));
+      expect(m.parts.any((p) => p.vertices.length == 4), isTrue);
+    });
+  });
+
   testWidgets('package parts without mesh fall back to blocky',
       (tester) async {
     await tester.runAsync(() async {

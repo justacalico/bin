@@ -42,6 +42,18 @@ class AvatarAssembler {
     'FrontAccessory',
     'BackAccessory',
     'WaistAccessory',
+    'JacketAccessory',
+    'ShirtAccessory',
+    'TShirtAccessory',
+    'ShortsAccessory',
+    'PantsAccessory',
+    'SweaterAccessory',
+    'DressSkirtAccessory',
+    'LeftShoeAccessory',
+    'RightShoeAccessory',
+    'EyebrowAccessory',
+    'EyelashAccessory',
+    'LipstickAccessory',
   };
 
   static const _packageParts = {
@@ -126,7 +138,7 @@ class AvatarAssembler {
             .every(partAssets.containsKey);
 
     if (usePackage) {
-      await _packageBody(spec, partAssets);
+      await _packageBody(spec, partAssets, tshirtTex, faceTex);
     } else {
       _blockyBody(spec, shirtTex, pantsTex, tshirtTex, faceTex);
     }
@@ -181,7 +193,7 @@ class AvatarAssembler {
 
     if (face != null) {
       final (fv, fi) = quadMesh(
-          headCenter + Vec3(0, -0.05, -(headSize.z / 2 + 0.01)),
+          headCenter + Vec3(0, -0.05, -(headSize.z / 2 + 0.08)),
           const Vec3(0, 0, -1),
           1.1 * hs,
           1.1 * hs);
@@ -214,7 +226,8 @@ class AvatarAssembler {
 
   // ---- package (R15) body ----
 
-  Future<void> _packageBody(AvatarSpec spec, Map<String, int> partAssets) async {
+  Future<void> _packageBody(AvatarSpec spec, Map<String, int> partAssets,
+      ui.Image? tshirtTex, ui.Image? faceTex) async {
     final h = spec.scales['height'] ?? 1.0;
     final w = spec.scales['width'] ?? 1.0;
     final d = spec.scales['depth'] ?? 1.0;
@@ -258,6 +271,10 @@ class AvatarAssembler {
     for (final e in partAssets.entries) {
       try {
         for (final node in readRbxm(await loadAsset(e.value))) {
+          if (node.className == 'AnimationPackage' ||
+              node.className == 'RbxAnimationClip') {
+            continue;
+          }
           for (final inst in node.walk()) {
             if (inst.className == 'MeshPart') {
               final name = inst.propString('Name');
@@ -288,38 +305,45 @@ class AvatarAssembler {
           }
         }
       } catch (_) {
-        failed = true;
-        break;
+        // one dead package must not kill the rest; the rig falls back to
+        // blocky only if no usable parts came through
+        if (partsByName.isEmpty) failed = true;
       }
     }
 
-    // position every part: torso package parts keep their own frames, the
-    // rest chain through rig attachments; no attachment -> own frame.
+    // packages carry authored CFrames for every part; the rig-attachment
+    // chain is only a fallback for parts with no CFrame prop
     final frames = <String, Mat4>{};
     Mat4 ownFrame(RbxmInstance inst) =>
         cframeMat(inst.propCFrame('CFrame') ??
             [0.0, 0.0, 0.0, 1, 0, 0, 0, 1, 0, 0, 0, 1]);
-    for (final name in ['LowerTorso', 'UpperTorso', 'Torso']) {
-      final inst = partsByName[name];
-      if (inst != null) frames[name] = ownFrame(inst);
+    for (final e in partsByName.entries) {
+      frames[e.key] = ownFrame(e.value);
     }
-    if (frames.isEmpty) failed = true;
-
     for (var iter = 0; iter < 4; iter++) {
       for (final e in rig.entries) {
-        if (frames.containsKey(e.key)) continue;
         final inst = partsByName[e.key];
         final parentCF = frames[e.value.$1];
         if (inst == null || parentCF == null) continue;
+        if (inst.propCFrame('CFrame') != null) continue;
         final pa = attachments[e.value.$1]?[e.value.$2];
         final ca = attachments[e.key]?[e.value.$2];
-        frames[e.key] = (pa != null && ca != null)
-            ? parentCF * pa * rigidInverse(ca)
-            : ownFrame(inst);
+        if (pa != null && ca != null) {
+          frames[e.key] = parentCF * pa * rigidInverse(ca);
+        }
       }
+    }
+    // a package rig without a torso anchor is broken; fall back entirely
+    if (frames.isEmpty ||
+        !(frames.containsKey('LowerTorso') ||
+            frames.containsKey('UpperTorso') ||
+            frames.containsKey('Torso'))) {
+      failed = true;
     }
 
     if (!failed) {
+      // package limb UVs are authored for their own texture, not the
+      // classic clothing template, so clothing stays on the part textures
       final sm = Mat4.scaling(w, h, d);
       for (final e in partsByName.entries) {
         final inst = e.value;
@@ -339,7 +363,17 @@ class AvatarAssembler {
             material: _mat(_brick(spec.bodyColors['${colorKey}ColorId']), tex)));
         _partCenters[e.key] = sm.transformPoint(cf.transformPoint(Vec3.zero));
       }
+      // t-shirt graphic on the torso front
+      final torsoC = _partCenters['UpperTorso'] ?? _partCenters['Torso'];
+      if (tshirtTex != null && torsoC != null) {
+        final depth = d * 0.6;
+        final (fv, fi) = quadMesh(torsoC + Vec3(0, 0, -depth), const Vec3(0, 0, -1),
+            1.5 * w, 1.5 * h);
+        _parts.add(MeshPart(
+            vertices: fv, indices: fi, material: _mat(const Color(0xFFFFFFFF), tshirtTex)));
+      }
       // dynamic head hangs off the torso's neck attachment
+      var hasHead = _partCenters.containsKey('Head');
       if (dynHead != null) {
         final meshId = _assetIdFrom(dynHead.propString('MeshId'));
         if (meshId != null) {
@@ -360,7 +394,35 @@ class AvatarAssembler {
                 material: _mat(_brick(spec.bodyColors['headColorId']), tex)));
             _partCenters['Head'] =
                 sm.transformPoint(headCF.transformPoint(Vec3.zero));
+            hasHead = true;
           }
+        }
+      }
+      // no head part at all -> blocky head anchored on the torso's neck
+      if (!hasHead) {
+        final headSize = Vec3(1.4 * hs, 1.3 * hs, 1.3 * hs);
+        final neckLocal = dynAttach['NeckRigAttachment'] ??
+            attachments['UpperTorso']?['NeckRigAttachment']
+                ?.transformPoint(Vec3.zero) ??
+            const Vec3(0, 0.5, 0);
+        final neck = frames['UpperTorso']?.transformPoint(neckLocal) ??
+            _partCenters['UpperTorso'] ??
+            Vec3(0, 3.2 * h, 0);
+        final headC = neck + Vec3(0, headSize.y * 0.55, 0);
+        final (hv, hi) = roundedBoxMesh(headC, headSize, 0.35 * hs);
+        _parts.add(MeshPart(
+            vertices: hv,
+            indices: hi,
+            material: _mat(_brick(spec.bodyColors['headColorId']))));
+        _partCenters['Head'] = headC;
+        if (faceTex != null) {
+          final (fv, fi) = quadMesh(
+              headC + Vec3(0, -0.05, -(headSize.z / 2 + 0.08)),
+              const Vec3(0, 0, -1), 1.1 * hs, 1.1 * hs);
+          _parts.add(MeshPart(
+              vertices: fv,
+              indices: fi,
+              material: _mat(const Color(0xFFFFFFFF), faceTex)));
         }
       }
     }
