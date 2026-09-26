@@ -1,21 +1,25 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
-import 'action_ids.dart';
-import 'server_action.dart';
+import '../render/glb_parser.dart';
 
-/// Result of resolving a username through the avatar pipeline.
+import '../render/avatar_assembler.dart';
+import '../util/gunzip_stub.dart'
+    if (dart.library.io) '../util/gunzip_io.dart';
+
+/// Result of building an avatar from the official Roblox APIs.
 class AvatarFetchResult {
   const AvatarFetchResult({
     required this.userId,
     required this.username,
-    required this.glb,
+    required this.model,
   });
 
   final int userId;
   final String username;
-  final Uint8List glb;
+  final AvatarModel model;
 }
 
 class AvatarFetchException implements Exception {
@@ -27,81 +31,110 @@ class AvatarFetchException implements Exception {
   String toString() => message;
 }
 
-/// Ports the rbxava fetch pipeline: username -> user id -> presigned GLB URL
-/// -> GLB bytes.
+/// Pieces of a user's avatar spec, straight from
+/// `avatar.roblox.com/v1/users/{id}/avatar`.
+class AvatarSpec {
+  AvatarSpec({
+    required this.avatarType,
+    required this.scales,
+    required this.bodyColors,
+    required this.assets,
+  });
+
+  /// 'R6' or 'R15'.
+  final String avatarType;
+
+  /// height, width, depth, head, proportion, bodyType multipliers.
+  final Map<String, double> scales;
+
+  /// part name -> brick color number.
+  final Map<String, int> bodyColors;
+
+  /// Worn assets: (asset id, asset type name).
+  final List<(int, String)> assets;
+}
+
+/// Talks to the public Roblox endpoints: username lookup, avatar spec, and
+/// asset delivery (rbxm models, .mesh geometry, png textures).
 class RobloxApi {
-  RobloxApi({
-    http.Client? client,
-    ServerActionClient? actions,
-    ActionIds? actionIds,
-  })  : client = client ?? http.Client(),
-        actions = actions ?? ServerActionClient(),
-        actionIds = actionIds ?? ActionIds();
+  RobloxApi({http.Client? client}) : client = client ?? http.Client();
 
   final http.Client client;
-  final ServerActionClient actions;
-  final ActionIds actionIds;
 
-  Map<String, String>? _ids;
+  static const _timeout = Duration(seconds: 20);
 
-  Future<Map<String, String>> _actionIds() async {
-    return _ids ??= await actionIds.resolve();
-  }
-
-  /// Resolves a Roblox username to a numeric user id, or null when the user
-  /// does not exist.
   Future<int?> lookupUserId(String username) async {
-    final ids = await _actionIds();
-    final body =
-        await actions.call(ids[ActionIds.lookupUser]!, '["$username"]');
-    final value = ServerActionClient.extractValue(body);
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    return null;
-  }
-
-  /// Returns the presigned GLB URL for an already-baked avatar, or null.
-  Future<Uri?> bakedGlbUrl(int userId) async {
-    final ids = await _actionIds();
-    final body =
-        await actions.call(ids[ActionIds.avatarIfBaked]!, '[$userId]');
-    final value = ServerActionClient.extractValue(body);
-    if (value is String && value.isNotEmpty) return Uri.tryParse(value);
-    return null;
-  }
-
-  /// Asks the backend to bake the avatar and return its GLB URL. The backend
-  /// rate limits anonymous bakes; when the quota is gone this returns a
-  /// [BakeResponse] with `ok == false` and a gate/limit payload.
-  Future<BakeResponse> bakeAvatar(int userId) async {
-    final ids = await _actionIds();
-    final body = await actions.call(ids[ActionIds.avatarBake]!, '[$userId]');
-    final value = ServerActionClient.extractValue(body);
-    if (value is Map<String, dynamic>) {
-      return BakeResponse(
-        ok: value['ok'] == true,
-        url: value['url'] is String ? Uri.tryParse(value['url']) : null,
-        gate: value['gate'] as String?,
-        resetsAt: value['resetsAt'] as String?,
-      );
+    final response = await client
+        .post(
+          Uri.parse('https://users.roblox.com/v1/usernames/users'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'usernames': [username],
+            'excludeBannedUsers': false,
+          }),
+        )
+        .timeout(_timeout);
+    if (response.statusCode != 200) {
+      throw AvatarFetchException(
+          'user lookup failed (HTTP ${response.statusCode})');
     }
-    return const BakeResponse(ok: false);
+    final data = jsonDecode(response.body)['data'] as List?;
+    if (data == null || data.isEmpty) return null;
+    final id = data[0]['id'];
+    return id is num ? id.toInt() : null;
   }
 
-  Future<Uint8List> downloadGlb(Uri url) async {
-    final response = await client.get(url).timeout(const Duration(seconds: 60));
+  Future<AvatarSpec> avatarSpec(int userId) async {
+    final response = await client
+        .get(Uri.parse('https://avatar.roblox.com/v1/users/$userId/avatar'))
+        .timeout(_timeout);
+    if (response.statusCode != 200) {
+      throw AvatarFetchException(
+          'avatar lookup failed (HTTP ${response.statusCode})');
+    }
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+    final scales = <String, double>{};
+    for (final e
+        in (body['scales'] as Map<String, dynamic>? ?? {}).entries) {
+      scales[e.key] = (e.value as num?)?.toDouble() ?? 1.0;
+    }
+    final colors = <String, int>{};
+    for (final e
+        in (body['bodyColors'] as Map<String, dynamic>? ?? {}).entries) {
+      colors[e.key] = (e.value as num?)?.toInt() ?? 0;
+    }
+    final assets = <(int, String)>[];
+    for (final a in (body['assets'] as List? ?? [])) {
+      final id = (a['id'] as num?)?.toInt();
+      final type = a['assetType']?['name'] as String? ?? '';
+      if (id != null) assets.add((id, type));
+    }
+    return AvatarSpec(
+      avatarType: body['playerAvatarType'] as String? ?? 'R6',
+      scales: scales,
+      bodyColors: colors,
+      assets: assets,
+    );
+  }
+
+  /// Raw bytes of an asset: rbxm model, .mesh geometry or png/jpg image.
+  Future<Uint8List> asset(int id) async {
+    final response = await client
+        .get(Uri.parse('https://assetdelivery.roblox.com/v1/asset?id=$id'))
+        .timeout(const Duration(seconds: 60));
     if (response.statusCode != 200 || response.bodyBytes.isEmpty) {
       throw AvatarFetchException(
-          'avatar download failed (HTTP ${response.statusCode})');
+          'asset $id download failed (HTTP ${response.statusCode})');
     }
-    return response.bodyBytes;
+    // some rbxm payloads arrive as gzip-wrapped files
+    return gunzip(response.bodyBytes);
   }
 
-  /// Full pipeline: resolve, find or bake the GLB, download it.
-  /// [onStatus] receives human readable progress lines.
+  /// Full pipeline: username -> user id -> spec -> assembled model.
   Future<AvatarFetchResult> fetchAvatar(
     String username, {
     void Function(String status)? onStatus,
+    AvatarAssembler? assembler,
   }) async {
     onStatus?.call('Resolving $username...');
     final userId = await lookupUserId(username);
@@ -109,42 +142,17 @@ class RobloxApi {
       throw AvatarFetchException('No Roblox user named "$username"');
     }
 
-    onStatus?.call('Looking up baked avatar...');
-    var url = await bakedGlbUrl(userId);
+    onStatus?.call('Fetching avatar...');
+    final spec = await avatarSpec(userId);
 
-    if (url == null) {
-      onStatus?.call('Avatar not baked yet, requesting bake...');
-      final bake = await bakeAvatar(userId);
-      if (!bake.ok || bake.url == null) {
-        throw AvatarFetchException(
-          bake.gate == 'sign-in'
-              ? 'This avatar is not baked yet and the anonymous bake quota is used up. Try again later.'
-              : 'Avatar bake failed. Try again later.',
-        );
-      }
-      url = bake.url;
-    }
+    onStatus?.call('Building avatar...');
+    final model =
+        await (assembler ?? AvatarAssembler(asset)).build(spec);
 
-    onStatus?.call('Downloading model...');
-    final glb = await downloadGlb(url!);
     return AvatarFetchResult(
       userId: userId,
       username: username,
-      glb: glb,
+      model: model,
     );
   }
-}
-
-class BakeResponse {
-  const BakeResponse({
-    required this.ok,
-    this.url,
-    this.gate,
-    this.resetsAt,
-  });
-
-  final bool ok;
-  final Uri? url;
-  final String? gate;
-  final String? resetsAt;
 }

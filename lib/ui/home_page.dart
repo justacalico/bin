@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 
@@ -61,11 +60,12 @@ class _HomePageState extends State<HomePage> {
       _status = local ? 'Loading local model...' : 'Resolving $username...';
     });
     try {
-      final Uint8List glb;
+      final AvatarModel model;
       String label;
       if (local) {
-        glb = await readLocalFile(username) ??
+        final bytes = await readLocalFile(username) ??
             (throw AvatarFetchException('Could not read $username'));
+        model = await GlbParser().parse(bytes);
         label = username.split('/').last;
         _userId = username.hashCode;
       } else {
@@ -75,11 +75,10 @@ class _HomePageState extends State<HomePage> {
             if (mounted) setState(() => _status = s);
           },
         );
-        glb = result.glb;
+        model = result.model;
         label = '${result.username} (#${result.userId})';
         _userId = result.userId;
       }
-      final model = await GlbParser().parse(glb);
       if (!mounted) return;
       setState(() {
         _state = _FetchState.ready;
