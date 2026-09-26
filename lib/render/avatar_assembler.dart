@@ -68,7 +68,7 @@ class AvatarAssembler {
 
   /// attachment name -> (body part, local offset)
   static const _attachments = <String, (String, Vec3)>{
-    'HatAttachment': ('Head', Vec3(0, 0.6, 0)),
+    'HatAttachment': ('Head', Vec3(0, 0.45, 0)),
     'HairAttachment': ('Head', Vec3(0, 0.6, 0)),
     'FaceFrontAttachment': ('Head', Vec3(0, -0.1, -0.6)),
     'FaceCenterAttachment': ('Head', Vec3(0, 0, 0)),
@@ -453,13 +453,16 @@ class AvatarAssembler {
       if (root.className != 'Accessory' && root.className != 'Hat') continue;
       final handle = _findHandle(root);
       if (handle == null) continue;
-      final attachName = _attachmentName(handle) ?? 'HatAttachment';
+      final attach = _attachmentInstance(handle);
+      final attachName = attach?.propString('Name') ?? 'HatAttachment';
       final (partName, offset) =
           _attachments[attachName] ?? ('Head', const Vec3(0, 0.6, 0));
       final partCenter = _partCenters[partName] ?? _partCenters['Head'] ?? Vec3.zero;
       final partCF = Mat4.translation(partCenter.x, partCenter.y, partCenter.z);
       final attachCF = Mat4.translation(offset.x, offset.y, offset.z);
-      final accPoint = root.propCFrame('AttachmentPoint') ??
+      // the attachment instance's own CFrame is the anchor inside the handle
+      final accPoint = attach?.propCFrame('CFrame') ??
+          root.propCFrame('AttachmentPoint') ??
           [0.0, 0.0, 0.0, 1, 0, 0, 0, 1, 0, 0, 0, 1];
       final handleCF = partCF * attachCF * rigidInverse(cframeMat(accPoint));
       await _emitHandle(handle, handleCF);
@@ -476,11 +479,9 @@ class AvatarAssembler {
     return null;
   }
 
-  String? _attachmentName(RbxmInstance handle) {
+  RbxmInstance? _attachmentInstance(RbxmInstance handle) {
     for (final inst in handle.children) {
-      if (inst.className == 'Attachment') {
-        return inst.props['Name'] as String?;
-      }
+      if (inst.className == 'Attachment') return inst;
     }
     return null;
   }
@@ -549,9 +550,27 @@ class AvatarAssembler {
   Future<ui.Image?> _texture(int id) async {
     if (_texCache.containsKey(id)) return _texCache[id];
     try {
-      return _texCache[id] = await _decodeImage(await loadAsset(id));
+      final img = await _decodeImage(await loadAsset(id));
+      // some bundles ship a fully-transparent placeholder texture; a real
+      // color is better than invisible parts
+      if (await _isFullyTransparent(img)) return _texCache[id] = null;
+      return _texCache[id] = img;
     } catch (_) {
       return _texCache[id] = null;
+    }
+  }
+
+  Future<bool> _isFullyTransparent(ui.Image img) async {
+    try {
+      final data = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (data == null) return false;
+      final px = data.buffer.asUint8List();
+      for (var i = 3; i < px.length; i += 4) {
+        if (px[i] > 0) return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
