@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 
+import 'bootstrap_stub.dart'
+    if (dart.library.io) 'bootstrap_io.dart';
 import 'ui/home_page.dart';
 
 void main() {
+  configureProxy();
   runApp(const BinApp());
 }
 

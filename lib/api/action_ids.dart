@@ -45,8 +45,7 @@ class ActionIds {
             .allMatches(html)
             .map((m) => pageUrl.resolve(m.group(1)!))
             .toSet();
-        for (final chunk in chunks) {
-          final js = await _get(chunk);
+        for (final js in await Future.wait(chunks.map(_get))) {
           if (js == null) continue;
           for (final m in _refRe.allMatches(js)) {
             final id = m.group(1)!;
@@ -68,7 +67,7 @@ class ActionIds {
 
   Future<String?> _get(Uri url) async {
     try {
-      final response = await client.get(url);
+      final response = await client.get(url).timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) return response.body;
     } catch (_) {}
     return null;
