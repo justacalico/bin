@@ -168,10 +168,15 @@ class AvatarPainter extends CustomPainter {
     final texCoords =
         material.image != null ? <Offset>[] : null;
 
+    final img = material.image;
     for (final tri in tris) {
       for (var v = 0; v < 3; v++) {
         positions.add(tri.pts[v]);
-        texCoords?.add(tri.uvs[v]);
+        // texture coordinates are in image pixel space, not normalized
+        if (texCoords != null && img != null) {
+          texCoords.add(Offset(
+              tri.uvs[v].dx * img.width, tri.uvs[v].dy * img.height));
+        }
         colors.add(material.image != null
             ? _gray(tri.shade)
             : _shade(material.color, tri.shade));
