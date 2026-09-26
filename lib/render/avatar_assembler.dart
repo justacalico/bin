@@ -138,8 +138,7 @@ class AvatarAssembler {
             .every(partAssets.containsKey);
 
     if (usePackage) {
-      await _packageBody(
-          spec, partAssets, shirtTex, pantsTex, tshirtTex, faceTex);
+      await _packageBody(spec, partAssets, tshirtTex, faceTex);
     } else {
       _blockyBody(spec, shirtTex, pantsTex, tshirtTex, faceTex);
     }
@@ -194,7 +193,7 @@ class AvatarAssembler {
 
     if (face != null) {
       final (fv, fi) = quadMesh(
-          headCenter + Vec3(0, -0.05, -(headSize.z / 2 + 0.01)),
+          headCenter + Vec3(0, -0.05, -(headSize.z / 2 + 0.08)),
           const Vec3(0, 0, -1),
           1.1 * hs,
           1.1 * hs);
@@ -227,13 +226,8 @@ class AvatarAssembler {
 
   // ---- package (R15) body ----
 
-  Future<void> _packageBody(
-      AvatarSpec spec,
-      Map<String, int> partAssets,
-      ui.Image? shirtTex,
-      ui.Image? pantsTex,
-      ui.Image? tshirtTex,
-      ui.Image? faceTex) async {
+  Future<void> _packageBody(AvatarSpec spec, Map<String, int> partAssets,
+      ui.Image? tshirtTex, ui.Image? faceTex) async {
     final h = spec.scales['height'] ?? 1.0;
     final w = spec.scales['width'] ?? 1.0;
     final d = spec.scales['depth'] ?? 1.0;
@@ -348,15 +342,8 @@ class AvatarAssembler {
     }
 
     if (!failed) {
-      // classic clothing applies to package limbs using their template UVs
-      const shirtParts = {
-        'UpperTorso', 'LowerTorso', 'LeftUpperArm', 'LeftLowerArm', 'LeftHand',
-        'RightUpperArm', 'RightLowerArm', 'RightHand',
-      };
-      const pantsParts = {
-        'LowerTorso', 'LeftUpperLeg', 'LeftLowerLeg', 'LeftFoot',
-        'RightUpperLeg', 'RightLowerLeg', 'RightFoot',
-      };
+      // package limb UVs are authored for their own texture, not the
+      // classic clothing template, so clothing stays on the part textures
       final sm = Mat4.scaling(w, h, d);
       for (final e in partsByName.entries) {
         final inst = e.value;
@@ -364,14 +351,8 @@ class AvatarAssembler {
         if (meshId == null) continue;
         final mesh = await _mesh(meshId);
         if (mesh == null) continue;
-        final clothing = shirtParts.contains(e.key)
-            ? shirtTex
-            : pantsParts.contains(e.key)
-                ? pantsTex
-                : null;
         final texId = _assetIdFrom(inst.propString('TextureID'));
-        final tex =
-            clothing ?? (texId == null ? null : await _texture(texId));
+        final tex = texId == null ? null : await _texture(texId);
         final cf = frames[e.key] ?? ownFrame(inst);
         final headScale = e.key == 'Head' ? hs : 1.0;
         final m = sm * cf * Mat4.scaling(headScale, headScale, headScale);
@@ -436,7 +417,7 @@ class AvatarAssembler {
         _partCenters['Head'] = headC;
         if (faceTex != null) {
           final (fv, fi) = quadMesh(
-              headC + Vec3(0, -0.05, -(headSize.z / 2 + 0.01)),
+              headC + Vec3(0, -0.05, -(headSize.z / 2 + 0.08)),
               const Vec3(0, 0, -1), 1.1 * hs, 1.1 * hs);
           _parts.add(MeshPart(
               vertices: fv,
