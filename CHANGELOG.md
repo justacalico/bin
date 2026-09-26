@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.2.2](https://gitlab.com/HttpAnimations/bin/compare/bfc066cb2327abcfba0a42bd97a1b9a8529affc7..v1.2.2) - 2026-09-26
+#### Bug Fixes
+- 修正贴图坐标单位和帽子锚点 - ([73e43bb](https://gitlab.com/HttpAnimations/bin/commit/73e43bb8bfea00c68dc868d41e6ade75162c1492)) - HttpAnimations
+- 全透明贴图回退到身体颜色 - ([f837674](https://gitlab.com/HttpAnimations/bin/commit/f83767462b05e532f1b40f62a751f73544978fc6)) - HttpAnimations
+
+- - -
+
 ## [v1.2.1](https://gitlab.com/HttpAnimations/bin/compare/663faf62f4ee106d4973a0e8ed6df1db2e88c37d..v1.2.1) - 2026-09-26
 #### Bug Fixes
 - 撤销 R15 服装贴图覆盖并修复脸部贴片穿插 - ([328a01b](https://gitlab.com/HttpAnimations/bin/commit/328a01b9abe01c5488ced286dadc722626ff2805)) - HttpAnimations
