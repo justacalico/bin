@@ -500,7 +500,6 @@ Uint8List buildR15Package(
   bool cframes = true,
 }) {
   // instances: 1 Model root + one MeshPart + one Attachment per entry
-  final ids = <int>[];
   var nextId = 1;
   final partIds = <int>[];
   final attIds = <int>[];

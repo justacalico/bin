@@ -6,7 +6,6 @@ import 'package:bin/render/avatar_assembler.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'helpers.dart';
-import 'helpers.dart' show buildBinRbxm, buildR15Package, buildDynHeadPackage;
 
 AssetLoader fakeLoader(Map<int, Uint8List> assets) =>
     (id) async => assets[id] ?? (throw StateError('no asset $id'));
