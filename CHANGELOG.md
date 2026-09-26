@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.2.0](https://gitlab.com/HttpAnimations/bin/compare/24d5eac73e0745a37e27c3205d5d1f324989a447..v1.2.0) - 2026-09-26
+#### Features
+- 换用官方 Roblox 接口渲染头像 - ([be1f08a](https://gitlab.com/HttpAnimations/bin/commit/be1f08a547a856826b43371d7a0e66021a44e1d4)) - HttpAnimations
+#### Bug Fixes
+- 修正衣服贴图前后面对应关系 - ([5d157cf](https://gitlab.com/HttpAnimations/bin/commit/5d157cfb7801c4beb6f074a4ef2f93cab6c4c19a)) - HttpAnimations
+
+- - -
+
 ## [v1.1.2](https://gitlab.com/HttpAnimations/bin/compare/be28280a83f83fb448592fb2fc7da4600a042cc5..v1.1.2) - 2026-09-26
 #### Bug Fixes
 - 添加网络超时与代理支持，支持本地 GLB 文件 - ([7a3dc83](https://gitlab.com/HttpAnimations/bin/commit/7a3dc8324435a1121d311ef9dc6ab39f8fc5ad0b)) - HttpAnimations
