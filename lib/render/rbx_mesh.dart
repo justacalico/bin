@@ -109,7 +109,7 @@ RbxMesh _parseBinary(Uint8List bytes, String version) {
     var py = view.getFloat32(off + 4, Endian.little);
     var pz = view.getFloat32(off + 8, Endian.little);
     var u = view.getFloat32(off + 24, Endian.little);
-    var v = view.getFloat32(off + 28, Endian.little);
+    var v = 1 - view.getFloat32(off + 28, Endian.little);
     // dead vertex slots carry NaN/Inf/absurd garbage; faces never use them
     bool bad(double x) => !x.isFinite || x.abs() > 1e6;
     if (bad(px) || bad(py) || bad(pz)) {

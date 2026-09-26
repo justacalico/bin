@@ -549,9 +549,27 @@ class AvatarAssembler {
   Future<ui.Image?> _texture(int id) async {
     if (_texCache.containsKey(id)) return _texCache[id];
     try {
-      return _texCache[id] = await _decodeImage(await loadAsset(id));
+      final img = await _decodeImage(await loadAsset(id));
+      // some bundles ship a fully-transparent placeholder texture; a real
+      // color is better than invisible parts
+      if (await _isFullyTransparent(img)) return _texCache[id] = null;
+      return _texCache[id] = img;
     } catch (_) {
       return _texCache[id] = null;
+    }
+  }
+
+  Future<bool> _isFullyTransparent(ui.Image img) async {
+    try {
+      final data = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
+      if (data == null) return false;
+      final px = data.buffer.asUint8List();
+      for (var i = 3; i < px.length; i += 4) {
+        if (px[i] > 0) return false;
+      }
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
