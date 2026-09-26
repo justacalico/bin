@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.1.2](https://gitlab.com/HttpAnimations/bin/compare/be28280a83f83fb448592fb2fc7da4600a042cc5..v1.1.2) - 2026-09-26
+#### Bug Fixes
+- 添加网络超时与代理支持，支持本地 GLB 文件 - ([7a3dc83](https://gitlab.com/HttpAnimations/bin/commit/7a3dc8324435a1121d311ef9dc6ab39f8fc5ad0b)) - HttpAnimations
+
+- - -
+
 ## [v1.1.1](https://gitlab.com/HttpAnimations/bin/compare/0f9667a0ca8e03f96e352a4596d93a02aac309f4..v1.1.1) - 2026-09-25
 #### Bug Fixes
 - 改用脚本更新 pubspec 版本 - ([bb06129](https://gitlab.com/HttpAnimations/bin/commit/bb06129ff055907b512cf60a6b3a7e44daa88900)) - HttpAnimations
