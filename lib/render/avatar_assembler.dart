@@ -530,25 +530,27 @@ class AvatarAssembler {
   Map<String, (double, double, double, double)> _templateUvs(String region) {
     (double, double, double, double) r(double x, double y, double w, double h) =>
         (x / 585, y / 559, (x + w) / 585, (y + h) / 559);
+    // the avatar's front is -Z in Roblox space, so 'nz' gets the front
+    // region and 'pz' the back
     const torso = {
-      'pz': (231, 74, 128, 128), // front (facing -z is the front face; pz here)
-      'nz': (427, 74, 128, 128), // back
+      'nz': (231, 74, 128, 128), // front
+      'pz': (427, 74, 128, 128), // back
       'px': (359, 74, 64, 128), // left side
       'nx': (163, 74, 64, 128), // right side
       'py': (231, 8, 128, 66), // top
       'ny': (231, 202, 128, 66), // bottom
     };
     const limbLeft = {
-      'pz': (372, 355, 64, 128),
-      'nz': (500, 355, 64, 128),
+      'nz': (372, 355, 64, 128),
+      'pz': (500, 355, 64, 128),
       'px': (436, 355, 64, 128),
       'nx': (308, 355, 64, 128),
       'py': (308, 290, 64, 64),
       'ny': (308, 483, 64, 64),
     };
     const limbRight = {
-      'pz': (84, 355, 64, 128),
-      'nz': (212, 355, 64, 128),
+      'nz': (84, 355, 64, 128),
+      'pz': (212, 355, 64, 128),
       'px': (148, 355, 64, 128),
       'nx': (20, 355, 64, 128),
       'py': (217, 290, 64, 64),
