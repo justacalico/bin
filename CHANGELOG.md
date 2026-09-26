@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## [v1.2.1](https://gitlab.com/HttpAnimations/bin/compare/663faf62f4ee106d4973a0e8ed6df1db2e88c37d..v1.2.1) - 2026-09-26
+#### Bug Fixes
+- 撤销 R15 服装贴图覆盖并修复脸部贴片穿插 - ([328a01b](https://gitlab.com/HttpAnimations/bin/commit/328a01b9abe01c5488ced286dadc722626ff2805)) - HttpAnimations
+- 修复 v4 蒙皮网格解析和 R15 身体组装 - ([e264b9e](https://gitlab.com/HttpAnimations/bin/commit/e264b9e65be4bd0fbc72e540174c2737a05d1adc)) - HttpAnimations
+
+- - -
+
 ## [v1.2.0](https://gitlab.com/HttpAnimations/bin/compare/24d5eac73e0745a37e27c3205d5d1f324989a447..v1.2.0) - 2026-09-26
 #### Features
 - 换用官方 Roblox 接口渲染头像 - ([be1f08a](https://gitlab.com/HttpAnimations/bin/commit/be1f08a547a856826b43371d7a0e66021a44e1d4)) - HttpAnimations
